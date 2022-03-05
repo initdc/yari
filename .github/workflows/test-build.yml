@@ -1,0 +1,24 @@
+name: Test Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.4.0
+
+      - name: Commit files
+        env:
+          USER: initdc
+          REPOSITORY: mdn-test
+        run: |
+          cd client/public
+          git init
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add --all
+          git commit -m "ci(actions): update on $(date +%m.%d-%H:%M:%S)"
+          git remote add github https://${USER}:${{ secrets.GH_PS_TOKEN }}@github.com/${USER}/${REPOSITORY}.git
+          git push github master -f
