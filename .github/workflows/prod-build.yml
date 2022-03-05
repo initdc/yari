@@ -17,7 +17,7 @@ env:
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron: "0 */24 * * *"
+    - cron: "0 */24 * * */7"
 
   workflow_dispatch:
     inputs:
@@ -96,23 +96,23 @@ jobs:
         if: steps.cached-node_modules.outputs.cache-hit != 'true'
         run: yarn --frozen-lockfile
 
-      - name: Install Python
-        uses: actions/setup-python@v3.0.0
-        with:
-          python-version: "3.8"
+      # - name: Install Python
+      #   uses: actions/setup-python@v3.0.0
+      #   with:
+      #     python-version: "3.8"
 
-      - name: Install Python poetry
-        uses: snok/install-poetry@v1.3
+      # - name: Install Python poetry
+      #   uses: snok/install-poetry@v1.3
 
-      - name: Install deployer
-        run: |
-          cd deployer
-          poetry install
+      # - name: Install deployer
+      #   run: |
+      #     cd deployer
+      #     poetry install
 
-      - name: Display Python & Poetry version
-        run: |
-          python --version
-          poetry --version
+      # - name: Display Python & Poetry version
+      #   run: |
+      #     python --version
+      #     poetry --version
 
       - name: Print information about build
         run: |
@@ -131,7 +131,7 @@ jobs:
           # (aka. local development). Usually defaults are supposed to be for
           # secure production but this is an exception and default
           # is not insecure.
-          BUILD_LIVE_SAMPLES_BASE_URL: https://yari-demos.prod.mdn.mozit.cloud
+          # BUILD_LIVE_SAMPLES_BASE_URL: https://yari-demos.prod.mdn.mozit.cloud
 
           # Now is not the time to worry about flaws.
           BUILD_FLAW_LEVELS: "*:ignore"
@@ -140,12 +140,12 @@ jobs:
           # If it's used on other domains (e.g. stage or dev builds), it's OK
           # because ultimately Google Analytics will filter it out since the
           # origin domain isn't what that account expects.
-          BUILD_GOOGLE_ANALYTICS_ACCOUNT: UA-36116321-5
+          # BUILD_GOOGLE_ANALYTICS_ACCOUNT: UA-36116321-5
 
           # See the code for a further explanation for this.
           # You get the ID from
           # https://speedcurve.com/mozilla-add-ons/mdn/settings/updated/#lux
-          BUILD_SPEEDCURVE_LUX_ID: 108906238
+          # BUILD_SPEEDCURVE_LUX_ID: 108906238
 
           # This enables the Plus call-to-action banner and the Plus landing page
           REACT_APP_ENABLE_PLUS: true
@@ -174,76 +174,91 @@ jobs:
           # Spread the work across 2 processes. Why 2? Because that's
           # what you get in the default GitHub-hosted Linux runners.
           # See https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
-          yarn build --locale     en-us --locale     ja --locale     fr &
+          yarn build --locale     en-us --locale     zh-cn &
           build1=$!
-          yarn build --not-locale en-us --not-locale ja --not-locale fr &
-          build2=$!
+          # yarn build --not-locale en-us --not-locale     zh-cn &
+          # build2=$!
 
           # You must explicitly specify the job you're waiting-on to ensure
           # that the exit status of the wait command reflects the exit status
           # of the job it's waiting-on.
           wait $build1
-          wait $build2
+          # wait $build2
 
           du -sh client/build
 
-      - name: Deploy with deployer
+      # - name: Deploy with deployer
+      #   env:
+      #     GITHUB_SHA: ${{ env.GITHUB_SHA }}
+      #     GITHUB_RUN_ID: ${{ env.GITHUB_RUN_ID }}
+      #     GITHUB_ACTION: ${{ env.GITHUB_ACTION }}
+
+      #     # Set the CONTENT_ROOT first
+      #     CONTENT_ROOT: ${{ github.workspace }}/mdn/content/files
+      #     CONTENT_TRANSLATED_ROOT: ${{ github.workspace }}/mdn/translated-content/files
+
+      #     DEPLOYER_BUCKET_NAME: mdn-content-prod
+
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.DEPLOYER_PROD_AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.DEPLOYER_PROD_AWS_SECRET_ACCESS_KEY }}
+
+      #     # Note, command will pick up the site ID and deployment API key
+      #     # from environment variables and if either of them is falsy, the
+      #     # command will *not* fail. It will simply not deploy anything.
+      #     SPEEDCURVE_DEPLOY_API_KEY: ${{ secrets.SPEEDCURVE_DEPLOY_API_KEY }}
+      #     # Based on https://api.speedcurve.com/#get-all-sites using the API key
+      #     SPEEDCURVE_DEPLOY_SITE_ID: 85742
+
+      #     DEPLOYER_ELASTICSEARCH_URL: ${{ secrets.DEPLOYER_PROD_ELASTICSEARCH_URL }}
+
+      #   run: |
+
+      #     # Info about which CONTENT_* environment variables were set and to what.
+      #     echo "CONTENT_ROOT=$CONTENT_ROOT"
+      #     echo "CONTENT_TRANSLATED_ROOT=$CONTENT_TRANSLATED_ROOT"
+
+      #     cd deployer
+
+      #     poetry run deployer whatsdeployed --output ../client/build/_whatsdeployed/code.json
+      #     poetry run deployer whatsdeployed --output ../client/build/_whatsdeployed/content.json $CONTENT_ROOT
+      #     poetry run deployer whatsdeployed --output ../client/build/_whatsdeployed/translated-content.json $CONTENT_TRANSLATED_ROOT
+      #     # XXX would be nice to validate here that $DEPLOYER_BUCKET_PREFIX is truthy
+      #     echo "DEPLOYER_BUCKET_PREFIX=$DEPLOYER_BUCKET_PREFIX"
+
+      #     poetry run deployer upload --prune ../client/build
+      #     poetry run deployer update-lambda-functions ./aws-lambda
+      #     poetry run deployer search-index ../client/build
+
+      #     # Record the deployment in our Speedcurve account. This should always
+      #     # be done after the upload of the documents and Lambda functions, as well
+      #     # as the search-index update, so those aren't affected if this fails.
+      #     poetry run deployer speedcurve-deploy \
+      #       --note "${GITHUB_SHA}" \
+      #       --detail "run_id=${GITHUB_RUN_ID} action=${GITHUB_ACTION}"
+
+      # - name: Slack Notification
+      #   if: failure()
+      #   uses: rtCamp/action-slack-notify@v2
+      #   env:
+      #     SLACK_CHANNEL: mdn-notifications
+      #     SLACK_COLOR: ${{ job.status }}
+      #     SLACK_ICON: https://avatars.slack-edge.com/2020-11-17/1513880588420_fedd7f0e9456888e69ff_96.png
+      #     SLACK_TITLE: ":rotating_light: Prod :rotating_light:"
+      #     SLACK_MESSAGE: "Build failed :collision:"
+      #     SLACK_FOOTER: "Powered by prod-build.yml"
+      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Push changes
         env:
-          GITHUB_SHA: ${{ env.GITHUB_SHA }}
-          GITHUB_RUN_ID: ${{ env.GITHUB_RUN_ID }}
-          GITHUB_ACTION: ${{ env.GITHUB_ACTION }}
-
-          # Set the CONTENT_ROOT first
-          CONTENT_ROOT: ${{ github.workspace }}/mdn/content/files
-          CONTENT_TRANSLATED_ROOT: ${{ github.workspace }}/mdn/translated-content/files
-
-          DEPLOYER_BUCKET_NAME: mdn-content-prod
-
-          AWS_ACCESS_KEY_ID: ${{ secrets.DEPLOYER_PROD_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEPLOYER_PROD_AWS_SECRET_ACCESS_KEY }}
-
-          # Note, command will pick up the site ID and deployment API key
-          # from environment variables and if either of them is falsy, the
-          # command will *not* fail. It will simply not deploy anything.
-          SPEEDCURVE_DEPLOY_API_KEY: ${{ secrets.SPEEDCURVE_DEPLOY_API_KEY }}
-          # Based on https://api.speedcurve.com/#get-all-sites using the API key
-          SPEEDCURVE_DEPLOY_SITE_ID: 85742
-
-          DEPLOYER_ELASTICSEARCH_URL: ${{ secrets.DEPLOYER_PROD_ELASTICSEARCH_URL }}
-
+          USER: ${{env.USER}}
+          REPOSITORY: ${{env.REPOSITORY}}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
         run: |
-
-          # Info about which CONTENT_* environment variables were set and to what.
-          echo "CONTENT_ROOT=$CONTENT_ROOT"
-          echo "CONTENT_TRANSLATED_ROOT=$CONTENT_TRANSLATED_ROOT"
-
-          cd deployer
-
-          poetry run deployer whatsdeployed --output ../client/build/_whatsdeployed/code.json
-          poetry run deployer whatsdeployed --output ../client/build/_whatsdeployed/content.json $CONTENT_ROOT
-          poetry run deployer whatsdeployed --output ../client/build/_whatsdeployed/translated-content.json $CONTENT_TRANSLATED_ROOT
-          # XXX would be nice to validate here that $DEPLOYER_BUCKET_PREFIX is truthy
-          echo "DEPLOYER_BUCKET_PREFIX=$DEPLOYER_BUCKET_PREFIX"
-
-          poetry run deployer upload --prune ../client/build
-          poetry run deployer update-lambda-functions ./aws-lambda
-          poetry run deployer search-index ../client/build
-
-          # Record the deployment in our Speedcurve account. This should always
-          # be done after the upload of the documents and Lambda functions, as well
-          # as the search-index update, so those aren't affected if this fails.
-          poetry run deployer speedcurve-deploy \
-            --note "${GITHUB_SHA}" \
-            --detail "run_id=${GITHUB_RUN_ID} action=${GITHUB_ACTION}"
-
-      - name: Slack Notification
-        if: failure()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_CHANNEL: mdn-notifications
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_ICON: https://avatars.slack-edge.com/2020-11-17/1513880588420_fedd7f0e9456888e69ff_96.png
-          SLACK_TITLE: ":rotating_light: Prod :rotating_light:"
-          SLACK_MESSAGE: "Build failed :collision:"
-          SLACK_FOOTER: "Powered by prod-build.yml"
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          cd client/build
+          git init
+          git remote add origin "https://${USER}:${INPUT_GITHUB_TOKEN}@github.com/${USER}/${REPOSITORY}.git"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -am "ci(actions): update on $(date +%m.%d-%H:%M:%S)"
+          git push --force origin HEAD:master
